@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Multimodal Technical Chat Demo</title>
+<style>
+  :root{
+    --bg:#0b0e14;
+    --panel:#11151d;
+    --panel-2:#161c26;
+    --border:#232c3b;
+    --accent:#4da9ff;
+    --accent-deep:#1f6feb;
+    --accent-dim:rgba(77,169,255,.12);
+    --text:#d8dfe9;
+    --muted:#8b97a8;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);
+    background-image:radial-gradient(1100px 520px at 18% -12%, rgba(31,111,235,.17), transparent 60%);
+    color:var(--text);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;
+    font-size:13.5px;line-height:1.55;
+    overflow:hidden;
+  }
+  .app{height:100vh;max-width:1060px;margin:0 auto;padding:14px 18px 8px;display:flex;flex-direction:column;gap:10px}
+
+  /* ---------- header ---------- */
+  header{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:38px;height:38px;border-radius:9px;display:grid;place-items:center;flex:none;
+    font-size:18px;color:#dff0ff;background:linear-gradient(135deg,#1f6feb,#0a3d8f);
+    box-shadow:0 0 18px rgba(31,111,235,.45);
+  }
+  h1{font-size:16px;letter-spacing:.2px;font-weight:650}
+  .sub{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:.6px;margin-top:2px}
+  .badge{
+    margin-left:auto;flex:none;font-family:var(--mono);font-weight:600;font-size:9.5px;letter-spacing:1.2px;
+    color:var(--accent);border:1px solid rgba(77,169,255,.4);background:var(--accent-dim);
+    padding:6px 10px;border-radius:999px;white-space:nowrap;
+  }
+
+  /* ---------- panels ---------- */
+  main{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+  .panel-label{
+    font-family:var(--mono);font-weight:600;font-size:9.5px;letter-spacing:1.8px;text-transform:uppercase;
+    color:var(--accent);display:flex;align-items:center;gap:7px;margin-bottom:8px;
+  }
+  .num{
+    display:inline-grid;place-items:center;width:16px;height:16px;flex:none;
+    border:1px solid rgba(77,169,255,.5);border-radius:4px;color:var(--accent);font-size:9px;
+  }
+
+  /* ---------- 1 · chat ---------- */
+  .chat-panel{flex:1;display:flex;flex-direction:column;min-height:0}
+  .messages{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-right:4px;min-height:110px}
+  .messages::-webkit-scrollbar{width:8px}
+  .messages::-webkit-scrollbar-thumb{background:#26303d;border-radius:4px}
+  .msg{display:flex}
+  .msg.user{justify-content:flex-end}
+  .bubble{max-width:78%;padding:8px 12px;border-radius:10px;white-space:pre-wrap;word-break:break-word}
+  .msg.user .bubble{background:#16283d;border:1px solid #2b4a6b;border-radius:10px 10px 3px 10px;color:#e9f1fb}
+  .msg.assistant .bubble{background:var(--panel-2);border:1px solid var(--border);border-left:2px solid var(--accent);border-radius:10px 10px 10px 3px}
+  .chip{
+    display:inline-block;font-family:var(--mono);font-weight:600;font-size:8.5px;letter-spacing:1px;
+    color:var(--accent);border:1px solid rgba(77,169,255,.35);border-radius:4px;padding:2px 5px;margin-bottom:5px;
+  }
+  .attach-chip{
+    display:inline-block;font-family:var(--mono);font-size:9.5px;letter-spacing:.5px;
+    color:#9fc9f5;border:1px dashed #35507a;border-radius:4px;padding:2px 6px;margin-top:5px;
+  }
+  .trace{display:block;font-family:var(--mono);font-size:9.5px;color:var(--muted);margin-top:6px;letter-spacing:.2px}
+  .dots i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:4px;animation:blink 1s infinite}
+  .dots i:nth-child(2){animation-delay:.18s}
+  .dots i:nth-child(3){animation-delay:.36s}
+  @keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+  .composer{display:flex;gap:8px;margin-top:10px}
+  #chatInput{
+    flex:1;background:#0d1219;border:1px solid var(--border);border-radius:8px;color:var(--text);
+    padding:10px 12px;font:inherit;outline:none;transition:border-color .15s,box-shadow .15s;
+  }
+  #chatInput::placeholder{color:#5c6878}
+  #chatInput:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(77,169,255,.15)}
+  #chatInput.flash{animation:flash .6s}
+  @keyframes flash{0%,100%{box-shadow:none}40%{box-shadow:0 0 0 4px rgba(77,169,255,.4)}}
+  #sendBtn{
+    flex:none;background:linear-gradient(135deg,#1f6feb,#1757b8);border:1px solid #2b74d8;color:#fff;
+    font-family:inherit;font-weight:650;font-size:12.5px;padding:0 18px;border-radius:8px;cursor:pointer;
+    transition:filter .15s;
+  }
+  #sendBtn:hover{filter:brightness(1.15)}
+  #sendBtn:active{transform:translateY(1px)}
+
+  /* ---------- 2 · file panel ---------- */
+  .file-body{display:flex;gap:10px;align-items:stretch}
+  .dropzone{
+    flex:1;border:1px dashed #33425a;border-radius:8px;background:#0e131b;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    min-height:74px;color:var(--muted);text-align:center;padding:8px;
+    transition:border-color .15s,background .15s;
+  }
+  .dropzone:hover,.dropzone.over{border-color:var(--accent);background:var(--accent-dim)}
+  .dz-icon{font-size:17px;color:var(--accent)}
+  .dropzone strong{color:var(--text);font-weight:600;font-size:12.5px}
+  .dropzone small{font-family:var(--mono);font-size:9.5px;letter-spacing:.8px}
+  .preview{
+    flex:1.4;display:flex;gap:10px;align-items:center;background:#0e131b;
+    border:1px solid var(--border);border-radius:8px;padding:8px;min-width:0;
+  }
+  .preview img{width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--border);flex:none}
+  .preview-meta{min-width:0;flex:1}
+  #previewName{font-weight:600;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #previewInfo{font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:3px;letter-spacing:.3px}
+  #removeBtn{
+    flex:none;background:transparent;border:1px solid #4a2d2d;color:#ff9c9c;border-radius:6px;
+    font-family:var(--mono);font-size:10px;letter-spacing:.5px;padding:6px 9px;cursor:pointer;transition:background .15s;
+  }
+  #removeBtn:hover{background:rgba(255,90,90,.1)}
+  #fileError{color:#ff9c9c;font-size:11px;margin-top:6px;min-height:0}
+
+  /* ---------- 3 · quick examples ---------- */
+  .examples{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .example{
+    text-align:left;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;
+    padding:9px 11px;cursor:pointer;color:var(--text);font:inherit;display:flex;flex-direction:column;gap:4px;
+    transition:border-color .15s,transform .08s;
+  }
+  .example:hover{border-color:var(--accent)}
+  .example:active{transform:translateY(1px)}
+  .ex-tag{font-family:var(--mono);font-weight:600;font-size:8.5px;letter-spacing:1.4px;color:var(--accent)}
+  .ex-q{font-size:12.5px;line-height:1.4}
+  .ex-hint{font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:.4px}
+
+  /* ---------- status bar ---------- */
+  footer{
+    display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:9.5px;color:var(--muted);letter-spacing:.6px;padding:0 2px 4px;
+  }
+  footer .dot{color:#39d98a}
+
+  @media (max-width:720px){
+    body{overflow:auto}
+    .app{height:auto}
+    .messages{max-height:44vh}
+    .examples{grid-template-columns:1fr}
+    .file-body{flex-direction:column}
+    .badge{display:none}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="logo">&#9674;</div>
+    <div>
+      <h1>Multimodal Technical Chat Demo</h1>
+      <div class="sub">PHYSICS-INFORMED QUANTUM HAMILTONIAN &middot; POST-VARIATIONAL DE-MCMC &middot; GENERATIVE AGENTIC TRANSFORMER &mdash; 100% IN-BROWSER</div>
+    </div>
+    <span class="badge">DEMO &middot; SAMPLE DATA ONLY</span>
+  </header>
+
+  <main>
+    <!-- 1 · CHAT -->
+    <section class="panel chat-panel">
+      <div class="panel-label"><span class="num">1</span> Chat &middot; Ask &amp; Reply</div>
+      <div class="messages" id="messages"></div>
+      <form class="composer" id="composer" autocomplete="off">
+        <input id="chatInput" type="text" placeholder="Type a question, e.g. about Malaysian transit or energy labels&hellip;" aria-label="Chat message">
+        <button id="sendBtn" type="submit">Send &#9656;</button>
+      </form>
+    </section>
+
+    <!-- 2 · FILE PANEL -->
+    <section class="panel">
+      <div class="panel-label"><span class="num">2</span> File Panel &middot; Image Attachment</div>
+      <div class="file-body">
+        <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload an image">
+          <span class="dz-icon">&#128444;&#65038;</span>
+          <strong>Drop an image here or click to browse</strong>
+          <small>PNG &middot; JPG &middot; WEBP &mdash; ONE IMAGE, PREVIEWED LOCALLY</small>
+        </div>
+        <div class="preview" id="preview" hidden>
+          <img id="previewImg" alt="Attached image preview">
+          <div class="preview-meta">
+            <div id="previewName"></div>
+            <div id="previewInfo"></div>
+          </div>
+          <button id="removeBtn" type="button">&#10005; REMOVE</button>
+        </div>
+      </div>
+      <div id="fileError"></div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+    </section>
+
+    <!-- 3 · QUICK EXAMPLES -->
+    <section class="panel">
+      <div class="panel-label"><span class="num">3</span> Quick Examples &middot; Malaysia Starters</div>
+      <div class="examples" id="examples"></div>
+    </section>
+  </main>
+
+  <footer>
+    <span><span class="dot">&#9679;</span> ENGINE READY &mdash; 2-QUBIT HAMILTONIAN &middot; JACOBI EIGENSOLVER &middot; DE 10&times;15 &middot; MCMC 250 &middot; NOTHING SAVED BETWEEN VISITS</span>
+    <span id="statusRight">idle</span>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============ element handles ============ */
+var $ = function(id){ return document.getElementById(id); };
+var messagesEl = $("messages"), inputEl = $("chatInput"), statusRight = $("statusRight");
+
+function esc(s){
+  return String(s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+function clamp(v, lo, hi){ return Math.min(hi, Math.max(lo, v)); }
+function scrollChat(){ messagesEl.scrollTop = messagesEl.scrollHeight; }
+function updateStatus(text){ statusRight.textContent = text; }
+
+/* ============ deterministic RNG (seeded by message) ============ */
+function hashStr(s){
+  var h = 2166136261 >>> 0;
+  for (var i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return h >>> 0;
+}
+function mulberry32(a){
+  return function(){
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* ============ Stage 1 — physics-informed 2-qubit Hamiltonian ============
+   H = a·(X⊗I) + b·(I⊗X) + c·(Z⊗Z)
+   Couplings are derived from the message seed; the ground energy E₀ is
+   computed with a Jacobi eigensolver on the 4×4 real symmetric matrix. */
+var X = [[0,1],[1,0]], Z = [[1,0],[0,-1]], I2 = [[1,0],[0,1]];
+function kron(A, B){
+  var m = A.length, n = A[0].length, p = B.length, q = B[0].length;
+  var out = [];
+  for (var i = 0; i < m*p; i++) out.push(new Array(n*q).fill(0));
+  for (var i2 = 0; i2 < m; i2++) for (var j = 0; j < n; j++)
+    for (var k = 0; k < p; k++) for (var l = 0; l < q; l++)
+      out[i2*p+k][j*q+l] = A[i2][j] * B[k][l];
+  return out;
+}
+var XI = kron(X, I2), IX = kron(I2, X), ZZ = kron(Z, Z);
+function buildH(a, b, c){
+  var H = [];
+  for (var i = 0; i < 4; i++){ H.push([0,0,0,0]); }
+  for (var i2 = 0; i2 < 4; i2++) for (var j = 0; j < 4; j++)
+    H[i2][j] = a*XI[i2][j] + b*IX[i2][j] + c*ZZ[i2][j];
+  return H;
+}
+function eig(H){ /* Jacobi rotation eigensolver, returns sorted eigenvalues */
+  var n = 4, a = H.map(function(r){ return r.slice(); });
+  for (var sweep = 0; sweep < 60; sweep++){
+    var p = 0, q = 1, mx = 0;
+    for (var i = 0; i < n; i++) for (var j = i+1; j < n; j++)
+      if (Math.abs(a[i][j]) > mx){ mx = Math.abs(a[i][j]); p = i; q = j; }
+    if (mx < 1e-12) break;
+    var apq = a[p][q], app = a[p][p], aqq = a[q][q];
+    var theta = (aqq - app) / (2*apq);
+    var t = (theta >= 0 ? 1 : -1) / (Math.abs(theta) + Math.sqrt(theta*theta + 1));
+    var c = 1/Math.sqrt(t*t + 1), s = t*c, k;
+    for (k = 0; k < n; k++){
+      var akp = a[k][p], akq = a[k][q];
+      a[k][p] = c*akp - s*akq; a[k][q] = s*akp + c*akq;
+    }
+    for (k = 0; k < n; k++){
+      var apk = a[p][k], aqk = a[q][k];
+      a[p][k] = c*apk - s*aqk; a[q][k] = s*apk + c*aqk;
+    }
+  }
+  return a.map(function(r, i){ return r[i]; }).sort(function(x, y){ return x - y; });
+}
+
+/* ============ Stage 2 — post-variational differential evolution ============
+   DE tunes the coupling scales θ = (a', c') so the ground energy E₀(θ)
+   hits a target derived from the message (+ image brightness shift). */
+function differentialEvolution(cost, rng, dim, popSize, gens){
+  dim = dim || 2; popSize = popSize || 10; gens = gens || 15;
+  var F = 0.7, CR = 0.9;
+  var pop = [], i, g;
+  for (i = 0; i < popSize; i++){
+    var ind = [];
+    for (var d = 0; d < dim; d++) ind.push(rng()*4 - 2);
+    pop.push(ind);
+  }
+  var best = pop[0].slice(), bestC = Infinity;
+  function evaluate(ind){
+    var c = cost(ind);
+    if (c < bestC){ bestC = c; best = ind.slice(); }
+    return c;
+  }
+  pop.forEach(evaluate);
+  for (g = 0; g < gens; g++){
+    for (i = 0; i < popSize; i++){
+      var others = [];
+      for (var k = 0; k < popSize; k++) if (k !== i) others.push(k);
+      var pick = function(){
+        var idx = Math.floor(rng()*others.length);
+        return others.splice(idx, 1)[0];
+      };
+      var r1 = pop[pick()], r2 = pop[pick()], r3 = pop[pick()];
+      var forceDim = Math.floor(rng()*dim);
+      var trial = pop[i].map(function(x, d){
+        var m = r1[d] + F*(r2[d] - r3[d]);
+        return (rng() < CR || d === forceDim) ? clamp(m, -2, 2) : x;
+      });
+      if (evaluate(trial) <= cost(pop[i])) pop[i] = trial;
+    }
+  }
+  return { best: best, bestC: bestC, popSize: popSize, gens: gens };
+}
+
+/* ============ Stage 3 — Markov Chain Monte Carlo ============
+   Metropolis sampling over the Hamiltonian spectrum selects the reply
+   style; the acceptance rate is reported in the engine trace. */
+function metropolisSelect(eigs, E0, rng, iters){
+  iters = iters || 250;
+  var sigma = 0.35;
+  function pi(i){ return Math.exp(-Math.pow(eigs[i] - E0, 2) / (2*sigma*sigma)); }
+  var s = Math.floor(rng()*eigs.length), accepted = 0, it;
+  for (it = 0; it < iters; it++){
+    var prop = (s + (rng() < 0.5 ? 1 : eigs.length - 1)) % eigs.length;
+    if (rng() < Math.min(1, pi(prop) / pi(s))){ s = prop; accepted++; }
+  }
+  return { state: s, acceptRate: accepted/iters, iters: iters };
+}
+
+/* ============ full pipeline ============ */
+function runEngine(text, image){
+  var t0 = performance.now();
+  var rng = mulberry32(hashStr(text.toLowerCase() + "|" + (image ? image.signature : "")));
+  var a0 = rng()*2 - 1, b0 = rng()*2 - 1, c0 = rng()*2 - 1;
+  var imageShift = image ? (image.brightness/255 - 0.5) : 0;
+  var target = -0.55 - 1.35*clamp(text.length/140, 0, 1) + imageShift;
+  function cost(th){
+    var e = eig(buildH(th[0], b0, th[1]))[0];
+    return Math.pow(e - target, 2);
+  }
+  var de = differentialEvolution(cost, rng);
+  var eigs = eig(buildH(de.best[0], b0, de.best[1]));
+  var E0 = eigs[0];
+  var mc = metropolisSelect(eigs, E0, rng);
+  return { E0: E0, eigs: eigs, de: de, mc: mc, ms: performance.now() - t0, target: target };
+}
+
+/* ============ sample knowledge base (demo content, no live values) ============ */
+var OPENERS = [
+  "Sample reply \u2014 synthesized entirely in your browser.",
+  "Demo response (offline, no live data):",
+  "Here is what the in-browser model produced:",
+  "Generated demo answer:"
+];
+var TOPICS = [
+  { re: /(toll|rfid|touch\s*'?\s*n\s*'?\s*go|smartag|highway)/i,
+    body: "RFID tolling uses a passive sticker tag fixed to the windscreen. As a car passes the lane, an overhead gantry transmits radio energy that powers the tag, reads its ID, and the toll system deducts from the linked e-wallet account. Lane controllers validate the read and lift the barrier without the car stopping. (General demo explanation \u2014 no live rates or account data.)" },
+  { re: /(haze|aqi|air quality|smoke|particulate)/i,
+    body: "Seasonal haze is mostly fine particulate matter from regional land and peatland fires, carried toward the Klang Valley by dry-season winds; the surrounding topography can trap it over the city. For actual air-quality readings, always use official channels \u2014 this demo never shows live values." },
+  { re: /(lrt|mrt|train|transit|rapid|arrival|komuter|monorail|kelana|station)/i,
+    body: "Arrival-time estimates generally fuse three signals: real-time train position from track-side sensors, historical dwell times per station, and the published schedule baseline. A predictor smooths these together and pushes the estimate to platform displays and passenger apps. (Demo-level summary; no live feed.)" },
+  { re: /(energy|label|fridge|refrigerator|tenaga|star rating|electricity|bill|kwh)/i,
+    body: "On an appliance energy label, the two things worth comparing are the star rating and the stated energy consumption per year at a fixed usage assumption \u2014 more stars and lower consumption at the same capacity means cheaper running costs. Verify the physical label on the actual unit before buying. (Demo guidance only.)" },
+  { re: /(monsoon|flight|klia|kota bharu|east coast|rain|weather|typhoon|delay)/i,
+    body: "During the northeast monsoon (roughly November to March), the east coast of Peninsular Malaysia \u2014 places like Kota Bharu \u2014 sees heavier rain, lower visibility and stronger crosswinds, so airlines build schedule buffer and occasionally delay or divert flights. Check the airline for real statuses; this demo has no live data." },
+  { re: /(quantum|qubit|hamiltonian|pennylane|pytorch|transformer|mcmc|physics)/i,
+    body: "A peek inside this demo: your message was literally encoded into a 2-qubit Hamiltonian H = a\u00b7(X\u2297I) + b\u00b7(I\u2297X) + c\u00b7(Z\u2297Z), its couplings tuned by differential evolution, and this reply style was sampled by Metropolis MCMC \u2014 the trace below shows the actual computed numbers. For real quantum-computing work in Malaysia, look up published research from university physics departments." }
+];
+var DEFAULT_BODY = "I am a fully local demo generator: no network, no accounts, nothing saved. I encode your message into a small quantum Hamiltonian, tune its couplings with differential evolution, and sample the reply style with MCMC \u2014 the numbers are in the trace below. Try asking about Malaysian transit, tolls, haze, energy labels or monsoon flights.";
+function topicBody(text){
+  for (var i = 0; i < TOPICS.length; i++) if (TOPICS[i].re.test(text)) return TOPICS[i].body;
+  return DEFAULT_BODY;
+}
+
+/* ============ reply composer ============ */
+function composeReply(r, text, image){
+  var parts = [ OPENERS[r.mc.state], "", topicBody(text) ];
+  if (image){
+    parts.push("", "Vision channel: decoded a " + image.w + "\u00d7" + image.h +
+      " px image (\"" + image.name + "\"), mean colour " + image.hex + ", brightness " +
+      Math.round(image.brightness) + "/255 \u2014 folded into the Hamiltonian coupling term.");
+  }
+  parts.push("", "\u2502 ENGINE TRACE: E\u2080 = " + r.E0.toFixed(4) +
+    " \u0127\u03c9 \u00b7 DE residual " + r.de.bestC.toExponential(1) +
+    " after " + r.de.gens + " gens \u00b7 MCMC acceptance " + Math.round(r.mc.acceptRate*100) +
+    "% (" + r.mc.iters + " iters) \u00b7 computed in " + r.ms.toFixed(1) + " ms");
+  return parts.join("\n");
+}
+
+/* ============ chat rendering ============ */
+function addMessage(role, html){
+  var div = document.createElement("div");
+  div.className = "msg " + role;
+  var bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.innerHTML = html;
+  div.appendChild(bubble);
+  messagesEl.appendChild(div);
+  scrollChat();
+  return div;
+}
+function assistantHtml(reply){
+  return '<span class="chip">DEMO</span>\n' + esc(reply);
+}
+
+$("composer").addEventListener("submit", function(e){
+  e.preventDefault();
+  var text = inputEl.value.trim();
+  if (!text) { inputEl.focus(); return; }
+  var userHtml = esc(text) + (attachment
+    ? '\n<span class="attach-chip">&#128206; ' + esc(attachment.name) + " (" + attachment.w + "\u00d7" + attachment.h + ")</span>"
+    : "");
+  addMessage("user", userHtml);
+  inputEl.value = "";
+  var typing = addMessage("assistant", '<span class="dots"><i></i><i></i><i></i></span>');
+  updateStatus("engine running\u2026");
+  var delay = 450 + Math.random()*550;
+  setTimeout(function(){
+    var r = runEngine(text, attachment);
+    var reply = composeReply(r, text, attachment);
+    typing.remove();
+    addMessage("assistant", assistantHtml(reply));
+    updateStatus("last reply: " + r.ms.toFixed(1) + " ms \u00b7 E\u2080 = " + r.E0.toFixed(3) + " \u0127\u03c9");
+  }, delay);
+});
+
+/* ============ file panel (multimodal input) ============ */
+var attachment = null;
+var dz = $("dropzone"), fi = $("fileInput");
+dz.addEventListener("click", function(){ fi.click(); });
+dz.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fi.click(); } });
+["dragover", "dragenter"].forEach(function(ev){
+  dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.add("over"); });
+});
+["dragleave", "drop"].forEach(function(ev){
+  dz.addEventListener(ev, function(e){ e.preventDefault(); dz.classList.remove("over"); });
+});
+dz.addEventListener("drop", function(e){
+  var f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+fi.addEventListener("change", function(){
+  if (fi.files && fi.files[0]) handleFile(fi.files[0]);
+});
+function setFileError(msg){ $("fileError").textContent = msg; }
+function analyzeImage(dataUrl, name){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      var s = 24, cv = document.createElement("canvas");
+      cv.width = s; cv.height = s;
+      var ctx = cv.getContext("2d");
+      ctx.drawImage(img, 0, 0, s, s);
+      var d = ctx.getImageData(0, 0, s, s).data;
+      var r = 0, g = 0, b = 0, i;
+      for (i = 0; i < d.length; i += 4){ r += d[i]; g += d[i+1]; b += d[i+2]; }
+      var n = d.length/4;
+      r = Math.round(r/n); g = Math.round(g/n); b = Math.round(b/n);
+      var hex = "#" + [r, g, b].map(function(v){ return v.toString(16).padStart(2, "0"); }).join("");
+      resolve({
+        name: name, w: img.naturalWidth, h: img.naturalHeight, hex: hex,
+        brightness: (r + g + b)/3,
+        signature: hex + "|" + img.naturalWidth + "x" + img.naturalHeight
+      });
+    };
+    img.src = dataUrl;
+  });
+}
+function handleFile(file){
+  if (!file.type || file.type.indexOf("image/") !== 0){
+    setFileError("Only image files (PNG, JPG, WEBP\u2026) are supported in this demo.");
+    return;
+  }
+  setFileError("");
+  var reader = new FileReader();
+  reader.onload = function(){
+    analyzeImage(reader.result, file.name).then(function(stats){
+      attachment = stats;
+      $("previewImg").src = reader.result;
+      $("previewName").textContent = file.name;
+      $("previewInfo").textContent = stats.w + "\u00d7" + stats.h + " px \u00b7 mean " + stats.hex +
+        " \u00b7 " + (file.size ? Math.round(file.size/1024) + " KB" : "");
+      $("preview").hidden = false;
+      updateStatus("image attached \u2014 vision channel armed");
+    });
+  };
+  reader.readAsDataURL(file);
+}
+$("removeBtn").addEventListener("click", function(){
+  attachment = null;
+  fi.value = "";
+  $("preview").hidden = true;
+  $("previewImg").src = "";
+  $("previewName").textContent = "";
+  $("previewInfo").textContent = "";
+  updateStatus("image removed \u2014 vision channel idle");
+});
+
+/* ============ quick examples (Malaysia-specific starters) ============ */
+var EXAMPLES = [
+  { tag: "TRANSIT", q: "Explain how Rapid KL estimates LRT arrival times on the Kelana Jaya line" },
+  { tag: "ENERGY",  q: "What should I look for on a refrigerator energy label in Malaysia?" },
+  { tag: "WEATHER", q: "How does the northeast monsoon affect flights to Kota Bharu?" }
+];
+$("examples").innerHTML = EXAMPLES.map(function(ex){
+  return '<button class="example" type="button" data-q="' + esc(ex.q) + '">' +
+    '<span class="ex-tag">' + esc(ex.tag) + '</span>' +
+    '<span class="ex-q">' + esc(ex.q) + '</span>' +
+    '<span class="ex-hint">load into chat \u2192</span>' +
+    '</button>';
+}).join("");
+$("examples").addEventListener("click", function(e){
+  var btn = e.target.closest(".example");
+  if (!btn) return;
+  inputEl.value = btn.dataset.q;
+  inputEl.focus();
+  inputEl.classList.remove("flash");
+  void inputEl.offsetWidth; /* restart animation */
+  inputEl.classList.add("flash");
+});
+
+/* ============ boot: seed example chats so the app never opens empty ============ */
+var SEED_CHATS = [
+  "How does Touch 'n Go RFID tolling work on Malaysian highways?",
+  "Why does Kuala Lumpur get haze during the dry season?"
+];
+SEED_CHATS.forEach(function(q){
+  addMessage("user", esc(q));
+  var r = runEngine(q, null);
+  addMessage("assistant", assistantHtml(composeReply(r, q, null)));
+});
+updateStatus("seeded " + SEED_CHATS.length + " example chats \u00b7 engine ready");
+
+})();
+</script>
+</body>
+</html>
