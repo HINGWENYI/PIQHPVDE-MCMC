@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multimodal Technical Chat Demo</title>
+<style>
+  :root {
+    --bg: #101217;
+    --panel: #171a21;
+    --panel-2: #1c202a;
+    --border: #2a3040;
+    --accent: #3b8bff;
+    --accent-soft: rgba(59, 139, 255, 0.14);
+    --text: #d7dbe4;
+    --muted: #8b93a5;
+    --mono: ui-monospace, "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ---------- Header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-shrink: 0;
+  }
+  .logo {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--accent), #1e4fd8);
+    display: grid; place-items: center;
+    color: #fff; font-family: var(--mono); font-weight: 700; font-size: 13px;
+  }
+  header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+  header .sub { color: var(--muted); font-size: 12px; margin-top: 1px; }
+  .badges { margin-left: auto; display: flex; gap: 8px; }
+  .badge {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em;
+    padding: 4px 8px; border-radius: 4px;
+    border: 1px solid var(--border); color: var(--muted);
+    background: var(--panel-2);
+  }
+  .badge.on { color: var(--accent); border-color: rgba(59,139,255,.45); background: var(--accent-soft); }
+
+  /* ---------- Layout ---------- */
+  main {
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 14px;
+    padding: 14px 18px;
+  }
+  .side { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex; flex-direction: column;
+    min-height: 0;
+  }
+  .panel-head {
+    display: flex; align-items: baseline; gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--mono);
+    flex-shrink: 0;
+  }
+  .panel-head .num { color: var(--accent); font-size: 11px; }
+  .panel-head .name { font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text); }
+  .panel-head .hint { margin-left: auto; font-size: 10px; color: var(--muted); letter-spacing: 0.04em; }
+
+  /* ---------- 1. Chat ---------- */
+  .chat-panel { min-height: 0; }
+  .messages {
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .messages::-webkit-scrollbar, .examples-list::-webkit-scrollbar { width: 8px; }
+  .messages::-webkit-scrollbar-thumb, .examples-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  .msg { max-width: 78%; display: flex; flex-direction: column; gap: 4px; }
+  .msg .meta { font-family: var(--mono); font-size: 10px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .msg .bubble {
+    padding: 9px 12px;
+    border-radius: 10px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg.user .bubble { background: var(--accent-soft); border: 1px solid rgba(59,139,255,.4); border-bottom-right-radius: 3px; }
+  .msg.bot { align-self: flex-start; }
+  .msg.bot .bubble { background: var(--panel-2); border: 1px solid var(--border); border-bottom-left-radius: 3px; }
+  .tag-sim {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+    color: var(--accent); border: 1px solid rgba(59,139,255,.45);
+    padding: 1px 5px; border-radius: 3px;
+  }
+  .msg img.attached { max-width: 180px; max-height: 130px; border-radius: 8px; border: 1px solid var(--border); margin-top: 6px; object-fit: cover; }
+  .typing .bubble { display: flex; gap: 5px; align-items: center; padding: 12px 14px; }
+  .typing .dot {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+    animation: blink 1.2s infinite;
+  }
+  .typing .dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%, 70%, 100% { opacity: 0.25; } 35% { opacity: 1; } }
+
+  .composer {
+    border-top: 1px solid var(--border);
+    padding: 12px 14px;
+    display: flex; gap: 10px; align-items: flex-end;
+    flex-shrink: 0;
+  }
+  .composer .inputwrap { flex: 1; position: relative; }
+  .composer .attach-chip {
+    display: none;
+    align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 10px; color: var(--accent);
+    background: var(--accent-soft); border: 1px solid rgba(59,139,255,.4);
+    border-radius: 4px; padding: 3px 7px; margin-bottom: 6px;
+    max-width: 100%;
+  }
+  .attach-chip.show { display: inline-flex; }
+  .attach-chip img { width: 18px; height: 18px; object-fit: cover; border-radius: 2px; }
+  .attach-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #chatInput {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font: inherit;
+    padding: 10px 12px;
+    resize: none;
+    min-height: 42px;
+    max-height: 110px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #chatInput:focus { border-color: var(--accent); }
+  #sendBtn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 11px 18px;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: filter 0.15s;
+    flex-shrink: 0;
+  }
+  #sendBtn:hover { filter: brightness(1.15); }
+  #sendBtn:disabled { opacity: 0.4; cursor: default; }
+
+  /* ---------- 2. File panel ---------- */
+  .dropzone {
+    margin: 14px;
+    border: 1.5px dashed var(--border);
+    border-radius: 10px;
+    padding: 22px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    flex-shrink: 0;
+  }
+  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+  .dropzone .icon { font-size: 22px; margin-bottom: 6px; color: var(--accent); font-family: var(--mono); }
+  .dropzone .t1 { font-size: 13px; color: var(--text); }
+  .dropzone .t2 { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 4px; letter-spacing: 0.04em; }
+  .preview { display: none; margin: 0 14px 14px; padding: 10px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; gap: 10px; align-items: center; flex-shrink: 0; }
+  .preview.show { display: flex; }
+  .preview img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); }
+  .preview .pinfo { flex: 1; min-width: 0; }
+  .preview .pname { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .preview .psize { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .preview .pstatus { font-family: var(--mono); font-size: 9px; color: var(--accent); margin-top: 3px; letter-spacing: 0.05em; }
+  #removeImg {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 13px;
+    transition: all 0.15s; flex-shrink: 0;
+  }
+  #removeImg:hover { border-color: #ff6b6b; color: #ff6b6b; }
+  .empty-note { font-family: var(--mono); font-size: 10px; color: var(--muted); text-align: center; padding: 0 14px 14px; letter-spacing: 0.03em; flex-shrink: 0; }
+
+  /* ---------- 3. Quick examples ---------- */
+  .examples-panel { flex: 1; min-height: 0; }
+  .examples-list { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .example {
+    text-align: left;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+    color: var(--text);
+    font: inherit;
+    font-size: 12.5px;
+    line-height: 1.45;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .example:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .example .etag {
+    display: inline-block;
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+    color: var(--accent); margin-bottom: 5px;
+  }
+  .example .etext { display: block; }
+
+  footer {
+    flex-shrink: 0;
+    padding: 7px 18px;
+    border-top: 1px solid var(--border);
+    background: var(--panel);
+    font-family: var(--mono); font-size: 10px; color: var(--muted);
+    letter-spacing: 0.05em;
+    display: flex; gap: 16px;
+  }
+  footer .dot-pulse { color: var(--accent); }
+
+  @media (max-width: 900px) {
+    body { overflow: auto; }
+    main { grid-template-columns: 1fr; }
+    .chat-panel { min-height: 60vh; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">MQ</div>
+  <div>
+    <h1>Multimodal Technical Chat Demo</h1>
+    <div class="sub">text + image input &middot; single-screen playground</div>
+  </div>
+  <div class="badges">
+    <span class="badge on">SIMULATED MODEL</span>
+    <span class="badge">NO BACKEND</span>
+    <span class="badge">NOT SAVED</span>
+  </div>
+</header>
+
+<main>
+  <!-- ============ 1. CHAT AREA ============ -->
+  <section class="panel chat-panel" id="chatSection">
+    <div class="panel-head">
+      <span class="num">01</span><span class="name">Chat Area</span>
+      <span class="hint">ask &rarr; reply</span>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="composer">
+      <div class="inputwrap">
+        <div class="attach-chip" id="attachChip"></div>
+        <textarea id="chatInput" rows="1" placeholder="Type a question, e.g. about KL trains or Penang food..."></textarea>
+      </div>
+      <button id="sendBtn">SEND ▸</button>
+    </div>
+  </section>
+
+  <div class="side">
+    <!-- ============ 2. FILE PANEL ============ -->
+    <section class="panel" id="fileSection">
+      <div class="panel-head">
+        <span class="num">02</span><span class="name">File Panel</span>
+        <span class="hint">1 image max</span>
+      </div>
+      <div class="dropzone" id="dropzone">
+        <div class="icon">[ + ]</div>
+        <div class="t1">Drop an image or click to browse</div>
+        <div class="t2">PNG &middot; JPG &middot; WEBP &middot; GIF</div>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden>
+      <div class="preview" id="preview">
+        <img id="previewImg" alt="Attached image preview">
+        <div class="pinfo">
+          <div class="pname" id="previewName"></div>
+          <div class="psize" id="previewSize"></div>
+          <div class="pstatus">ADDED TO CHAT CONTEXT</div>
+        </div>
+        <button id="removeImg" title="Remove image">✕</button>
+      </div>
+      <div class="empty-note" id="emptyNote">no image attached &mdash; context is text-only</div>
+    </section>
+
+    <!-- ============ 3. QUICK EXAMPLES ============ -->
+    <section class="panel examples-panel" id="exampleSection">
+      <div class="panel-head">
+        <span class="num">03</span><span class="name">Quick Examples</span>
+        <span class="hint">click to load</span>
+      </div>
+      <div class="examples-list" id="examplesList"></div>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <span><span class="dot-pulse">●</span> offline demo</span>
+  <span>everything runs in your browser</span>
+  <span>refresh resets to examples</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- state (memory only, never persisted) ---------------- */
+  var attachedImage = null; // { file, url }
+
+  var messagesEl   = document.getElementById("messages");
+  var inputEl      = document.getElementById("chatInput");
+  var sendBtn      = document.getElementById("sendBtn");
+  var dropzone     = document.getElementById("dropzone");
+  var fileInput    = document.getElementById("fileInput");
+  var previewEl    = document.getElementById("preview");
+  var previewImg   = document.getElementById("previewImg");
+  var previewName  = document.getElementById("previewName");
+  var previewSize  = document.getElementById("previewSize");
+  var removeBtn    = document.getElementById("removeImg");
+  var attachChip   = document.getElementById("attachChip");
+  var emptyNote    = document.getElementById("emptyNote");
+  var examplesList = document.getElementById("examplesList");
+
+  /* ---------------- seed data (all made up, Malaysia-specific) ---------------- */
+  var seedChat = [
+    { who: "user", text: "Draft a short caption for a photo of char kway teow from a Penang hawker stall." },
+    { who: "bot",  text: "Caption idea: \u201CSmoky wok hei, big prawns, flat noodles done right \u2014 a Penang hawker classic.\u201D\n\n(Simulated demo reply \u2014 canned text, no real model is running.)" },
+    { who: "user", text: "What is the morning rush hour like on the KL LRT?" },
+    { who: "bot",  text: "A typical answer: trains toward the city centre get very packed between roughly 7:30\u20139:00 on weekdays, so many commuters travel earlier or use the MRT as an alternative.\n\n(Simulated demo reply \u2014 illustrative only, no live transit data.)" }
+  ];
+
+  var examples = [
+    { tag: "PENANG",       text: "Suggest a one-day food trail through George Town, Penang." },
+    { tag: "KUALA LUMPUR", text: "Write a friendly out-of-office reply for the Hari Raya holidays." },
+    { tag: "TECH",         text: "What should I check before buying a used laptop at Low Yat Plaza?" }
+  ];
+
+  /* ---------------- chat rendering ---------------- */
+  function addMessage(who, text, imageUrl) {
+    var wrap = document.createElement("div");
+    wrap.className = "msg " + who;
+
+    var meta = document.createElement("div");
+    meta.className = "meta";
+    var time = new Date().toLocaleTimeString("en-MY", { hour: "2-digit", minute: "2-digit" });
+    if (who === "bot") {
+      meta.innerHTML = '<span class="tag-sim">SIM</span><span>assistant</span><span>' + time + "</span>";
+    } else {
+      meta.textContent = "you \u00B7 " + time;
+    }
+
+    var bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = text;
+
+    wrap.appendChild(meta);
+    wrap.appendChild(bubble);
+
+    if (imageUrl) {
+      var img = document.createElement("img");
+      img.className = "attached";
+      img.src = imageUrl;
+      img.alt = "Image attached to message";
+      wrap.appendChild(img);
+    }
+
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return wrap;
+  }
+
+  function showTyping() {
+    var wrap = document.createElement("div");
+    wrap.className = "msg bot typing";
+    wrap.innerHTML = '<div class="meta"><span class="tag-sim">SIM</span><span>assistant</span></div>' +
+                     '<div class="bubble"><span class="dot"></span><span class="dot"></span><span class="dot"></span></div>';
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return wrap;
+  }
+
+  /* ---------------- simulated reply engine ---------------- */
+  function simulatedReply(text, hasImage) {
+    var t = text.toLowerCase();
+
+    if (hasImage) {
+      return "I can see an image is attached to your message. In this offline demo the picture is only added to the local chat context \u2014 no real vision analysis happens here. Ask a follow-up about it and I will answer with a canned sample reply.";
+    }
+    if (/(penang|george town|kway|kuey|laksa|food|hawkar|cendol)/.test(t)) {
+      return "Sample food-trail plan for George Town (illustrative, not real recommendations):\n\u2022 Morning: coffee + kaya toast at a heritage kopitiam\n\u2022 Midday: char kway teow and asam laksa at a hawker stall\n\u2022 Afternoon: cendol break, then street-art walk around Armenian Street\n\u2022 Evening: prawn mee by the waterfront\n\n(Simulated demo reply \u2014 generated offline.)";
+    }
+    if (/(raya|holiday|out.of.office|office|leave)/.test(t)) {
+      return 'Sample out-of-office reply:\n\n\u201CSelamat Hari Raya! I am away for the holidays and will reply when I am back. For anything urgent, please contact my teammate. \u2014 Terima kasih!\u201D\n\n(Simulated demo reply \u2014 generated offline.)';
+    }
+    if (/(low yat|laptop|used|buy|second.hand|notebook)/.test(t)) {
+      return "Sample checklist for a used laptop (illustrative):\n\u2022 Check battery health and charging port\n\u2022 Look for dead pixels and hinge looseness\n\u2022 Run a quick disk and RAM test\n\u2022 Confirm the original charger and receipt are included\n\u2022 Agree on a short in-person test before paying\n\n(Simulated demo reply \u2014 generated offline.)";
+    }
+    if (/(lrt|ktm|mrt|train|transit|commute|monorail)/.test(t)) {
+      return "Sample answer: KL\u2019s rail network covers the city centre and suburbs, and rush-hour trains toward downtown are usually the busiest. Commuters often check the journey before leaving and allow extra time for transfers.\n\n(Simulated demo reply \u2014 illustrative only, no live transit data.)";
+    }
+    return "Got it \u2014 you asked: \u201C" + text.slice(0, 120) + (text.length > 120 ? "\u2026" : "") + "\u201D\n\nThis demo runs entirely in your browser, so this is a canned sample response rather than a real model answer. Try a quick example from the panel on the right, or attach an image and send it.";
+  }
+
+  /* ---------------- sending ---------------- */
+  function send() {
+    var text = inputEl.value.trim();
+    var hasImage = !!attachedImage;
+    if (!text && !hasImage) return;
+
+    var imageUrl = null;
+    if (attachedImage) imageUrl = attachedImage.url;
+
+    addMessage("user", text || "(image only)", imageUrl);
+
+    var sentImage = attachedImage;
+    inputEl.value = "";
+    inputEl.style.height = "auto";
+    if (sentImage) clearImage();
+    updateSendState();
+
+    var typing = showTyping();
+    setTimeout(function () {
+      typing.remove();
+      addMessage("bot", simulatedReply(text, hasImage && !!sentImage));
+    }, 700 + Math.random() * 400);
+  }
+
+  function updateSendState() {
+    sendBtn.disabled = !inputEl.value.trim() && !attachedImage;
+  }
+
+  sendBtn.addEventListener("click", send);
+  inputEl.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      send();
+    }
+  });
+  inputEl.addEventListener("input", function () {
+    inputEl.style.height = "auto";
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 110) + "px";
+    updateSendState();
+  });
+
+  /* ---------------- image attach / preview ---------------- */
+  function setImage(file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    if (attachedImage) URL.revokeObjectURL(attachedImage.url);
+    attachedImage = { file: file, url: URL.createObjectURL(file) };
+
+    previewImg.src = attachedImage.url;
+    previewName.textContent = file.name;
+    previewSize.textContent = (file.size / 1024).toFixed(1) + " KB \u00B7 " + (file.type || "image");
+    previewEl.classList.add("show");
+    emptyNote.style.display = "none";
+
+    attachChip.innerHTML = '<img src="' + attachedImage.url + '" alt=""><span>&#128206; ' + file.name + "</span>";
+    attachChip.classList.add("show");
+    updateSendState();
+  }
+
+  function clearImage() {
+    if (attachedImage) URL.revokeObjectURL(attachedImage.url);
+    attachedImage = null;
+    fileInput.value = "";
+    previewEl.classList.remove("show");
+    emptyNote.style.display = "";
+    attachChip.classList.remove("show");
+    attachChip.innerHTML = "";
+    updateSendState();
+  }
+
+  dropzone.addEventListener("click", function () { fileInput.click(); });
+  fileInput.addEventListener("change", function () {
+    if (fileInput.files && fileInput.files[0]) setImage(fileInput.files[0]);
+  });
+  removeBtn.addEventListener("click", clearImage);
+
+  ["dragenter", "dragover"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      dropzone.classList.add("dragover");
+    });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) {
+      e.preventDefault();
+      dropzone.classList.remove("dragover");
+    });
+  });
+  dropzone.addEventListener("drop", function (e) {
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) setImage(e.dataTransfer.files[0]);
+  });
+
+  /* ---------------- quick examples ---------------- */
+  examples.forEach(function (ex) {
+    var btn = document.createElement("button");
+    btn.className = "example";
+    btn.type = "button";
+    btn.innerHTML = '<span class="etag">' + ex.tag + '</span><span class="etext"></span>';
+    btn.querySelector(".etext").textContent = ex.text;
+    btn.addEventListener("click", function () {
+      inputEl.value = ex.text;
+      inputEl.focus();
+      updateSendState();
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
+    examplesList.appendChild(btn);
+  });
+
+  /* ---------------- init: never open empty ---------------- */
+  seedChat.forEach(function (m) { addMessage(m.who, m.text); });
+  updateSendState();
+})();
+</script>
+</body>
+</html>
